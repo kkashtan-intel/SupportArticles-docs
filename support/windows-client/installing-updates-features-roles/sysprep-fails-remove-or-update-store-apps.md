@@ -119,6 +119,32 @@ To resolve this issue, remove the package for the user who's running sysprep, an
 
 If you try to recover from an update issue, you can reprovision the app after you follow these steps.
 
+Automated version of the above:
+    ```cmd
+c:\Windows\System32\sysprep\sysprep.exe /oobe /generalize /shutdown /quiet /unattend:C:\temp\unattend.xml
+:retry
+echo "ok, lets remove those damn appxes until we succeed..."
+powershell.exe -ExecutionPolicy Unrestricted -File %Systemdrive%\temp\removeappxpackages.ps1
+c:\Windows\System32\sysprep\sysprep.exe /oobe /generalize /shutdown /quiet /unattend:C:\temp\unattend.xml
+goto retry
+    ```
+removeappxpackages.ps1 content:
+    ```powershell
+# Find failing appx packages in sysprep log
+$sysprepLogPath = "C:\Windows\System32\Sysprep\Panther\setupact.log"
+$failedPackages = Get-Content $sysprepLogPath | Select-String -Pattern "Error.*was installed for a user" | ForEach-Object {
+    if ($_ -match 'Microsoft.*8wekyb3d8bbwe') {
+        $matches[0]
+    }
+}
+
+# Remove failing appx packages
+foreach ($package in $failedPackages) {
+    Write-Host "Removing appx package: $package"
+    Remove-AppxPackage $package -Erroraction 'silentlycontinue'
+}
+    ```
+
 > [!NOTE]
 > The issue does not occur if you are servicing an offline image. In that scenario, the provisioning is automatically cleared for all users. This includes the user who runs the command.
 
